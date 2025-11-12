@@ -65,7 +65,7 @@ You can extend the ontology by adding new policies, classes, or shapes.
 For consistency, follow the same namespace used in the current files and the examples below.
 
 ```ttl
-@prefix smedg: <https://github.com/bushrasulayyim/SMEDG/Model#> .
+@prefix smedg: <https://github.com/bushrasulayim/SMEDG/Model#> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
