@@ -1,3 +1,38 @@
+#################################################################
+# Ontology: SMEDG (SME-Data Governance)
+# Title: Ontology for SME-Oriented Data Governance and Policy Enforcement
+# Description: Knowledge-graph-based ontology for policy-driven information
+#              governance, compliance, and monitoring in SME contexts.
+# Creator: Bushra Al Sulayyim
+# Institution: University of Technology Sydney (UTS)
+# Version: 1.0.0
+# Created: 2025-11-12
+# License: MIT License
+# Source Repository: https://github.com/bushrasulayyim/SMEDG
+# Namespace URI: https://github.com/bushrasulayyim/SMEDG/Model#
+#################################################################
+
+@prefix smedg: <https://github.com/bushrasulayyim/SMEDG/Model#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <https://schema.org/> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+smedg:OntologyMetadata
+    a owl:Ontology ;
+    rdfs:label "SMEDG Ontology" ;
+    dcterms:title "SME Data Governance Ontology" ;
+    dcterms:creator "Bushra Al Sulayyim" ;
+    dcterms:publisher "University of Technology Sydney (UTS)" ;
+    dcterms:description "An ontology to support lightweight, ontology-driven policy enforcement and compliance monitoring in SMEs." ;
+    dcterms:license <https://opensource.org/licenses/MIT> ;
+    dcterms:source <https://github.com/bushrasulayyim/SMEDG/blob/main/Model/SMEDG_ontology.ttl> ;
+    owl:versionInfo "1.0.0" .
+
+
+
 <urn:SMEDG_Prototype:Alert_1> a <http://www.w3.org/2002/07/owl#Class> ;
   <http://www.w3.org/2000/01/rdf-schema#label> "Alert" ;
   <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
