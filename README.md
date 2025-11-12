@@ -12,7 +12,7 @@ This repository hosts the core artefacts developed as part of the **SMEDG (SME-D
 | **SPARQL_Queries/** | Contains SPARQL queries and rules for policy enforcement, monitoring, and alert generation. |
 | **Data/** | Example or synthetic datasets used for testing and evaluating the ontology and SHACL rules. |
 
-## 🧠 Overview
+## Overview
 
 SMEDG provides a lightweight, ontology-based framework designed to:
 - Encode information governance (data classification) and compliance rules as executable knowledge-graph constraints  
@@ -23,7 +23,7 @@ The ontology is compatible with RDF-compliant systems such as **Stardog**, **Pro
 
 
 
-## 🧾 License
+## License
 
 Released under the **MIT License**. You are free to reuse, modify, and extend this ontology with proper attribution and refrence.
 
