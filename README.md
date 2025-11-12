@@ -55,15 +55,21 @@ The ontology is compatible with RDF-compliant systems such as **Stardog**, **Pro
 - You can extend the ontology by adding new policies, classes, or shapes.
 - For consistency, follow the same namespace used in the current files:
 
+```ttl
+@prefix smedg: <https://github.com/bushrasulayiyim/SMEDG/Model#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <https://schema.org/> .
+@prefix sdtag: <tag:stardog:designer:> .
 
 ## License
-
 Released under the **MIT License**. You are free to reuse, modify, and extend this ontology with proper attribution and refrence.
 
 
 
 **Contact:**  
-Bushra Al Sulayyim  
-University of Technology Sydney (UTS)
+Bushra Al Sulayyim, University of Technology Sydney
 bushra.alsulayyim@uts.edu.au
 
