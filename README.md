@@ -73,4 +73,23 @@ The ontology is compatible with RDF-compliant systems such as **Stardog**, **Pro
 @prefix sdtag: <tag:stardog:designer:> .
 
 
+****### Example 1: Adding a New Class
+To add a new policy-related concept (e.g., DataPolicy), reuse the SMEDG namespace to keep it consistent and compatible with the existing ontology.
+smedg:DataPolicy a owl:Class ;
+    rdfs:label "Data Policy" ;
+    rdfs:comment "A governance policy describing retention, classification, or sharing rules for specific data assets." .
+This new class can be linked to assets, rules, or events in your ontology to represent specific governance controls.
 
+****### Example 2: Adding a New SHACL Shape
+When defining new validation rules, use the same namespace and connect your shape to the target class.
+For example, to ensure that every DataPolicy includes a valid retention period:
+smedg:DataPolicyShape a sh:NodeShape ;
+    sh:targetClass smedg:DataPolicy ;
+    sh:property [
+        sh:path smedg:retentionDays ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 30 ;
+        sh:message "Retention must be at least 30 days."
+    ] .
+
+This ensures consistent validation logic and enables automated checks using SHACL in tools such as Stardog, Protégé, or RDFLib.
