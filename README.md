@@ -19,9 +19,17 @@ SMEDG provides a lightweight, ontology-based framework designed to:
 - Automate validation and alerting through SHACL and SPARQL  
 - Support transparent, human-readable monitoring for non-technical SME users  
 
-The ontology is compatible with RDF-compliant systems such as **Stardog**, **Protégé**, and **GraphDB**.
+## License
+Released under the **MIT License**. You are free to reuse, modify, and extend this ontology with proper attribution and refrence.
+
+
+**Contact:**  
+Bushra Al Sulayyim, University of Technology Sydney
+bushra.alsulayyim@uts.edu.au
+
 
 ##  How to Use SMEDG Ontology
+The ontology is compatible with RDF-compliant systems such as **Stardog**, **Protégé**, and **GraphDB**.
 
 ###  1. Using in **Stardog**
 1. Open **Stardog Studio** or **Stardog Designer**.
@@ -64,12 +72,5 @@ The ontology is compatible with RDF-compliant systems such as **Stardog**, **Pro
 @prefix schema: <https://schema.org/> .
 @prefix sdtag: <tag:stardog:designer:> .
 
-## License
-Released under the **MIT License**. You are free to reuse, modify, and extend this ontology with proper attribution and refrence.
 
-
-
-**Contact:**  
-Bushra Al Sulayyim, University of Technology Sydney
-bushra.alsulayyim@uts.edu.au
 
