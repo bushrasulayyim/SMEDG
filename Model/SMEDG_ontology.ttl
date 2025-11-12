@@ -12,6 +12,7 @@
 # Namespace URI: https://github.com/bushrasulayyim/SMEDG/Model#
 #################################################################
 
+@base <https://github.com/bushrasulayyim/SMEDG/Model#> .
 @prefix smedg: <https://github.com/bushrasulayyim/SMEDG/Model#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -30,6 +31,7 @@ smedg:OntologyMetadata
     dcterms:license <https://opensource.org/licenses/MIT> ;
     dcterms:source <https://github.com/bushrasulayyim/SMEDG/blob/main/Model/SMEDG_ontology.ttl> ;
     owl:versionInfo "1.0.0" .
+
 
 
 
