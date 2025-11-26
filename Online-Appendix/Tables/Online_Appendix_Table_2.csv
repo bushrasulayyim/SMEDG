@@ -1,0 +1,25 @@
+CQ,Competency Question,Mapped Policy Rules,Anchor class,Class Properties,Relations
+CQ1,Which Confidential assets are stored outside a Secure site/recordkeeping system?,P1,Asset,hasClassification: Classification,storedIn ? StorageService (isSecure:boolean or approvedForMaxClass ? Confidential)
+CQ2,Which documents of class Confidential+ lack watermark/visible indicator?,P2,Document,"hasClassification, hasWatermark:boolean, optional headerLabel, footerLabel",?
+CQ3,Which emails to external recipients contain Restricted/Confidential attachments?,P3,Email,toExternal:boolean,hasAttachment ? Asset.hasClassification
+CQ4,"For each GenAI job, did the asset class exceed the platform?s max or run in a non-approved tenant/region?","P4, P13, P22, P28, P30, P39, P40, P38",GenAIJob,timestamp:dateTime,"usedAsset ? Asset.hasClassification; processedOn ? GenAIPlatform.allowedMaxClass; inTenant ? Tenant(approved,region)"
+CQ5,"For each asset, is retention consistent with classification (and unit rules)?","P5, P26",Asset,"retentionDays:int, hasClassification",fromUnit ? OrgUnit.retentionByClass (or reference table)
+CQ6,Does any ?Confidential?-labelled asset have classification below Confidential?,"P6, P20",Asset,hasClassification,"hasLabel ? Label(""Confidential"")"
+CQ7,Which .zip/.pst files of class Internal+ were sent to GenAI?,P7,File,"extension, hasClassification",processedOn ? GenAIPlatform
+CQ8,Which Confidential physical records are not in a secure cabinet or not logged?,P8,PhysicalRecord,"hasClassification, logged:boolean",storedIn ? StorageService(isSecureCabinet)
+CQ9,Which documents of class ? Internal lack an appropriate label?,"P9, P15, P16, P24, P25, P35, P37",Document,hasClassification,hasLabel ? Label
+CQ10,Which assets (? Internal) lack a named owner and/or org-unit owner?,P10,Asset,hasClassification,"owner ? User, groupOwner ? OrgUnit"
+CQ11,Which high-severity alerts remain unassigned too long?,P11,Alert,"severity, createdAt",assignedTo ? User
+CQ12,Which assets are stored in a service not approved for their org unit?,"P12, P21, P34",Asset,?,fromUnit ? OrgUnit; storedIn ? StorageService.approvedForUnit ? OrgUnit
+CQ13,"Where do unit bans on external email apply, and which events violate them?","P14, P23",DistributionEvent,?,about ? Asset.hasClassification; initiatedBy ? User.memberOf ? OrgUnit.emailExternalAllowedMaxClass; to ? Party(isExternal)
+CQ14,"Where do unit watermark/label minima apply, and which assets violate them?","P15, P16, P24, P25",Document,"hasWatermark, hasClassification",fromUnit ? OrgUnit (watermarkRequiredAtOrAbove / labelMinimumByClass)
+CQ15,Which Restricted items were sent via USB? Which Internal items via Email (allowed) but not USB?,"P17, P18, P31, P32, P33",TransferEvent,?,"about ? Asset.hasClassification; overChannel ? Channel(name, allowedAtOrAbove)"
+CQ16,"Who changed classifications, and were they Records Officers (by unit if required)?","P19, P27",AuditEvent (ChangeClassEvent),"changedProperty, oldValue/newValue","performedBy ? User.hasRole(""RecordsOfficer""); about ? Asset.fromUnit ? OrgUnit"
+CQ17,Which Confidential assets were moved into a Secure site by non-Site Owners?,P29,AuditEvent (MoveEvent),?,"about ? Asset.hasClassification ? Confidential; movedTo ? StorageService.isSecure; performedBy ? User.hasRole(""SiteOwner"")"
+CQ18,Which OneDrive items violate rules (no Confidential; Internal/Sensitive only if draft/labelled)?,P42,Asset,"isDraft:boolean, hasClassification","storedIn ? StorageService.hasFamily=""OneDrive""; hasLabel ? Label"
+CQ19,Which assets sit in allowed/forbidden services (TRIM always allowed; Google Drive legacy-only)?,"P43, P44",Asset,isLegacy:boolean,"storedIn ? StorageService(hasFamily, isAuthorised, allowLegacyOnly)"
+CQ20,Which Network Drive/eResearch items exceed Public/Internal?,P45,Asset,hasClassification,"storedIn ? StorageService.hasFamily in {NetworkDrive, eResearch}"
+CQ21,"For external sharing of Internal+: is encryption on, password sent out-of-band, and for Confidential are download/print disabled?","P46, P36",DistributionEvent,"encrypted, passwordOutOfBand, drmDisableDownload, drmDisablePrint",about ? Asset.hasClassification; to ? Party(isExternal)
+CQ22,"For portable media transfers of Internal+: encrypted, hand-delivered, custody logged?",P47,TransferEvent,"encrypted, handDelivered, custodyLogged","about ? Asset.hasClassification; overChannel ? Channel(name=""PortableMedia"")"
+CQ23,Are archiving and destruction actions appropriate to class?,P48,AuditEvent (LifecycleEvent),"destructionMethod, archiveRoute",about ? Asset.hasClassification
+CQ24,"For Teams chats with Confidential content: linked to a Secure site or sanitised, and membership clean?",P41,TeamsChat,"sanitised, membershipHygieneOk, hasClassification",linkedToStorage ? StorageService.isSecure
