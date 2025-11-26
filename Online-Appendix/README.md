@@ -66,5 +66,6 @@ This table includes deliberately non-compliant scenario instances, each reflecti
 - **Ontology Type**: Asset, Document, DistributionEvent, etc.  
 - **Addressed CQ#**: Which competency question it tests  
 - **Mapped Policy Rule(s)**: Policy logic being validated
--   
-- **Policy Focus** — Expected behaviour according to the guide  
+- **Policy Focus**: Expected behaviour according to the guide
+
+
