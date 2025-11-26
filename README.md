@@ -7,10 +7,10 @@ This repository hosts the core artefacts developed as part of the **SMEDG (SME-D
 
 | Folder | Description |
 |---------|--------------|
+| **Online-Appendix/** | Contains all appendix materials for this paper, including Table 1: Policy Rules Extracted from The Guide, Table 2: the CQs and the ontology elements required to answer them competency questions, Table 3: SHACL/SPARQL to answer each CQ, Table 4: Contextual Entities Populating the SMEDG Ontology (29 Instances), Table 5. Scenario-Specific Instances Seeded for CQ1–CQ24 (35 Instances) |
 | **Model/** | Contains the SMEDG ontology model (`.ttl`) defining classes, properties, and relationships. |
 | **SHACL_Shapes/** | Includes SHACL shapes used for policy validation and compliance checking. |
 | **SPARQL_Queries/** | Contains SPARQL queries and rules for policy enforcement, monitoring, and alert generation. |
-| **Data/** | Example or synthetic datasets used for testing and evaluating the ontology and SHACL rules. |
 
 ## Overview
 
