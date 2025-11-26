@@ -1,0 +1,49 @@
+Asset (Data Item/Label),Instance Name(s),Ontology Type,Addressed CQ #,Mapped Policy Rules,Policy Focus (Expectation)
+StudentTranscript_2024.pdf,CQ1_Asset,Asset,CQ1,P1,Confidential assets must be stored only in secure repositories.
+Confidential record stored in non-secure SharePoint,,,,,
+ContractTemplate.docx,CQ2_Doc,Document,CQ2,P2,Confidential + documents require a visible watermark or indicator.
+Confidential document without watermark,,,,,
+BudgetProposal.xlsx,"CQ3_Att, CQ3_Event",Document + DistributionEvent,CQ3,P3,External emails must not include Restricted or Confidential attachments.
+Sent externally to ExtParty,,,,,
+ResearchDataset_AI.csv,"CQ4_Asset, CQ4_Job",Asset + GenAIJob,CQ4,"P4, P13, P22, P28, P30, P38, P39, P40",GenAI jobs must run only on approved tenants; class must not exceed platform limits; user must be org-signed in.
+Processed on unapproved US tenant,,,,,
+StudentRecords.csv,CQ5_Asset,Asset,CQ5,"P5, P26",Asset retention must meet minimum period per classification and unit rules.
+Retention 365 days < required 3650,,,,,
+StaffList_2025.xlsx,CQ6_Asset,Asset,CQ6,"P6, P20",Assets labelled ?Confidential? must have ? Confidential classification and DLP provenance.
+Asset has ?Confidential? label but classification below Confidential,,,,,
+ExportArchive.zip,CQ7_File,File,CQ7,P7,.zip or .pst files of Internal + must not be processed on GenAI platforms.
+Processed on GenAI platform,,,,,
+ExamFiles_Box1,CQ8_Phys,PhysicalRecord,CQ8,P8,Confidential physical records must be stored in secure cabinets and logged.
+Confidential paper record in open cabinet,,,,,
+InternalMemo.docx,CQ9_Doc,Document,CQ9,"P9, P15, P16, P24, P25, P35, P37",Documents ? Internal must have appropriate labels and/or watermarks.
+Internal document without label,,,,,
+FinanceRegister.xlsx,CQ10_Asset,Asset,CQ10,P10,Assets ? Internal must have both individual and unit owners.
+Internal asset owned by UnitA,,,,,
+AccessAlert_01012025,CQ11_Alert,Alert,CQ11,P11,High-severity alerts must be assigned within target timeframes.
+Unassigned high-severity alert,,,,,
+ResearchData_OneDrive.csv,CQ12_Asset,Asset,CQ12,"P12, P21, P34",Assets must be stored only in services approved for their unit.
+Stored in unapproved service,,,,,
+Email_Attachment.docx,"CQ13_Item, CQ13_Send",Asset + DistributionEvent,CQ13,"P14, P23",Unit rules may ban external email for certain classifications.
+Sent externally by UserNormal,,,,,
+PolicyReport.pdf,CQ14_Doc,Document,CQ14,"P15, P16, P24, P25",Unit-specific watermark and label minimums must be met.
+Internal doc missing required watermark,,,,,
+HR_Form.pdf,"CQ15_Item, CQ15_Xfer",Asset + TransferEvent,CQ15,"P17, P18, P31, P32, P33",Restricted cannot use USB; Internal may use Email but not USB.
+Transferred via USB unencrypted,,,,,
+DataAccessPolicy.docx,"CQ16_Item, CQ16_Change",Asset + AuditEvent,CQ16,"P19, P27",Only Records Officers may change classifications according to unit policy.
+Classification changed by unauthorised user,,,,,
+PayrollArchive.docx,"CQ17_Item, CQ17_Move",Asset + AuditEvent,CQ17,P29,Only Site Owners may move Confidential assets into Secure sites.
+Moved to Secure site by non-Site Owner,,,,,
+ResearchReport_OneDrive.docx,CQ18_Item,Asset,CQ18,P42,OneDrive cannot store Confidential; Internal/Sensitive only if draft and labelled.
+Confidential asset in OneDrive,,,,,
+OldFiles_GDrive.zip,CQ19_Item,Asset,CQ19,"P43, P44",TRIM always allowed; Google Drive only for legacy content.
+Non-legacy data on legacy-only Google Drive,,,,,
+DepartmentShare.pptx,CQ20_Item,Asset,CQ20,P45,Network Drive/eResearch may store Public or Internal only.
+Confidential file on NetDrive,,,,,
+VendorContract_Email.eml,"CQ21_Doc, CQ21_Share",Asset + DistributionEvent,CQ21,"P46, P36","For external sharing of Internal +, encryption/password required; Confidential must disable download/print."
+"Unencrypted, no DRM",,,,,
+BackupData.zip,"CQ22_Doc, CQ22_Xfer",Asset + TransferEvent,CQ22,P47,"Portable media transfers of Internal + must be encrypted, hand-delivered, and logged."
+Portable transfer unlogged,,,,,
+ProjectDocs_Delete.log,"CQ23_Item, CQ23_Event",Asset + AuditEvent,CQ23,P48,Archiving and destruction must use secure methods appropriate to class.
+Destroyed via Recycle Bin,,,,,
+TeamsChat_Audit.json,CQ24_Chat,TeamsChat,CQ24,P41,Teams chats must be sanitised and maintain member hygiene standards.
+Chat not sanitised; membership hygiene failed,,,,,

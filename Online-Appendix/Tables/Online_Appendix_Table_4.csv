@@ -1,0 +1,10 @@
+Category,Instance Name(s),Description / Role
+Classifications (5),"Public, Internal (minRetentionDays = 365), Sensitive, Confidential (minRetentionDays = 3650), Restricted","Levels from the security-classification guide defining retention minima, dissemination limits, and access scope."
+Organisational Units (2),"UnitA, UnitB",Representative departments (Research / Finance) used for ownership and policy variation.
+Users (3),"UserNormal (Employee), UserRecords (Records Officer), UserSiteOwner (Site Owner)",Represent organisational roles with different decision rights and permissions.
+Label (1),LabelConf,Label ?Confidential?; used to test labelling and watermarking enforcement.
+Storage Services (9),"SP_Open, SP_Secure, TRIM, GDrive, OneDrive, NetDrive, eResearch, CabinetOpen, CabinetSecure",Digital and physical repositories used to validate approved-storage policies.
+Tenants (2),"TEN_Approved (region = AU), TEN_Bad (region = US)",Approved vs unapproved cloud environments for GenAI use.
+GenAI Platforms (2),"AOAI (allowedMaxClass = Internal), ChatGPT (allowedMaxClass = Public)",Approved and public LLM platforms for AI-processing tests.
+Channels (3),"Email, USB, PortableMedia",Data-transfer methods used in distribution and transfer events.
+Parties (2),"ExtParty (isExternal = true), IntParty (isExternal = false)",Distinguish external and internal recipients for sharing and transfer policies.
