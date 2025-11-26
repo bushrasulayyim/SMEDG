@@ -1,0 +1,541 @@
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class ?storage ?siteType ?maxClass
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:hasClassification ?class ;
+         smedg:storedIn ?storage .
+  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+  OPTIONAL { ?storage smedg:siteType ?siteType . }
+  OPTIONAL { ?storage smedg:approvedForMaxClass ?maxClass . }
+
+  FILTER ( !(BOUND(?siteType) && LCASE(STR(?siteType)) = "secure")
+           &&
+           !(BOUND(?maxClass) && ?maxClass IN (smedg:Confidential, smedg:Restricted)) )
+}
+ORDER BY ?asset
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?doc ?class ?hasWatermark ?headerLabel ?footerLabel
+WHERE {
+  ?doc a smedg:Document ;
+       smedg:hasClassification ?class .
+  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+  OPTIONAL { ?doc smedg:hasWatermark ?hasWatermark . }
+  OPTIONAL { ?doc smedg:headerLabel ?headerLabel . }
+  OPTIONAL { ?doc smedg:footerLabel ?footerLabel . }
+
+  # treat any non-empty header/footer as a visible indicator
+  BIND( IF(BOUND(?headerLabel) && STRLEN(STR(?headerLabel)) > 0, true, false) AS ?hasHeader )
+  BIND( IF(BOUND(?footerLabel) && STRLEN(STR(?footerLabel)) > 0, true, false) AS ?hasFooter )
+
+  # violation: no watermark AND no visible header/footer
+  FILTER ( !(BOUND(?hasWatermark) && ?hasWatermark = true) && !(?hasHeader || ?hasFooter) )
+}
+ORDER BY ?doc
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?email ?attachment ?class
+WHERE {
+  ?email a smedg:Email ;
+         smedg:toExternal true ;
+         smedg:hasAttachment ?attachment .
+  ?attachment smedg:hasClassification ?class .
+
+  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+}
+ORDER BY ?email
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?job ?asset ?assetClass ?platform ?allowed ?tenant ?tenantApproved ?family ?region ?orgSignedIn ?reason
+WHERE {
+  ?job a smedg:GenAIJob ;
+       smedg:usedAsset ?asset ;
+       smedg:processedOn ?platform ;
+       smedg:inTenant ?tenant .
+
+  ?asset smedg:hasClassification ?assetClass .
+
+  OPTIONAL { ?platform smedg:allowedMaxClass ?allowed . }
+  OPTIONAL { ?tenant   smedg:approved ?tenantApproved . }
+  OPTIONAL { ?tenant   smedg:region   ?region . }
+  OPTIONAL { ?platform smedg:hasFamily ?family . }
+  OPTIONAL { ?job smedg:initiatedBy ?user . ?user smedg:isOrgSignedIn ?orgSignedIn . }
+
+  VALUES (?cls ?rank) {
+    (smedg:Public        1)
+    (smedg:Internal      2)
+    (smedg:Sensitive     3)
+    (smedg:Confidential  4)
+    (smedg:Restricted    5)
+  }
+  BIND( IF(?assetClass = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+  BIND( COALESCE(?aR_tmp) AS ?assetRank )
+
+  OPTIONAL {
+    ?platform smedg:allowedMaxClass ?allowed .
+    BIND( IF(?allowed = ?cls, ?rank, UNDEF) AS ?alR_tmp )
+  }
+  BIND( COALESCE(?alR_tmp) AS ?allowedRank )
+
+  BIND( IF(BOUND(?allowedRank) && BOUND(?assetRank) && (?assetRank <= ?allowedRank), true, false) AS ?okMax )
+  BIND( IF(BOUND(?tenantApproved) && ?tenantApproved = true, true, false) AS ?okTenant )
+  BIND( IF(BOUND(?region), LCASE(STR(?region)) = "au", true) AS ?okRegion )
+
+  BIND( LCASE(STR(?family)) AS ?fam )
+  BIND( IF(BOUND(?fam) && ?fam = "azureopenai",
+           IF(BOUND(?assetRank) && (?assetRank <= 2), true, false),
+           true) AS ?okAzure )
+  BIND( IF(BOUND(?fam) && ?fam = "publicgenai",
+           IF(BOUND(?assetRank) && (?assetRank <= 1), true, false),
+           true) AS ?okPublic )
+  BIND( IF(BOUND(?fam) && (?fam = "bingcopilot" || ?fam = "copilot"),
+           IF(BOUND(?assetRank) && (?assetRank >= 2),
+              (BOUND(?orgSignedIn) && ?orgSignedIn = true),
+              true),
+           true) AS ?okCopilot )
+
+  BIND( CONCAT(
+         IF(!?okMax,    "exceeds platform max; ", ""),
+         IF(!?okTenant, "tenant not approved; ", ""),
+         IF(!?okRegion, "region not allowed; ", ""),
+         IF(!?okAzure,  "AzureOpenAI cap exceeded; ", ""),
+         IF(!?okPublic, "PublicGenAI cap exceeded; ", ""),
+         IF(!?okCopilot,"Org sign-in missing for Copilot/Bing; ", "")
+       ) AS ?reason )
+
+  FILTER( !(?okMax && ?okTenant && ?okRegion && ?okAzure && ?okPublic && ?okCopilot) )
+}
+ORDER BY ?job
+
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class ?days ?min ?minSource
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:hasClassification ?class ;
+         smedg:retentionDays ?days .
+
+  OPTIONAL { ?class smedg:minRetentionDays ?minByClass . }
+  OPTIONAL {
+    ?asset smedg:fromUnit ?unit .
+    ?unit  smedg:retentionByClass ?rule .
+    ?rule  smedg:appliesToClass ?class ;
+           smedg:minDays       ?minByUnit .
+  }
+
+  BIND( COALESCE(?minByUnit, ?minByClass) AS ?min )
+  BIND( IF(BOUND(?minByUnit), "unit", "class") AS ?minSource )
+
+  FILTER( BOUND(?min) && xsd:integer(?days) < xsd:integer(?min) )
+}
+ORDER BY ?asset
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class ?label
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:hasClassification ?class ;
+         smedg:hasLabel ?label .
+  OPTIONAL { ?label smedg:labelName ?labelName . }
+
+  BIND( LCASE(STR(?label)) = "confidential"
+        || (BOUND(?labelName) && LCASE(STR(?labelName)) = "confidential")
+        || (?label = smedg:ConfidentialLabel)
+        || (?label = smedg:Confidential)
+        AS ?isConfLabel )
+
+  FILTER( ?isConfLabel )
+  FILTER( ?class NOT IN (smedg:Confidential, smedg:Restricted) )
+}
+ORDER BY ?asset
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?file ?ext ?class ?platform ?family
+WHERE {
+  ?file a smedg:File ;
+        smedg:hasClassification ?class ;
+        smedg:extension ?ext .
+  FILTER ( ?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) )
+  BIND( LCASE(STR(?ext)) AS ?e )
+  FILTER( ?e IN (".zip","zip",".pst","pst") )
+
+  ?file smedg:processedOn ?platform .
+  OPTIONAL { ?platform a smedg:GenAIPlatform . }
+  OPTIONAL { ?platform smedg:hasFamily ?family . }
+
+  FILTER( EXISTS { ?platform a smedg:GenAIPlatform } || BOUND(?family) )
+}
+ORDER BY ?file
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?record ?storage ?secureCabinet ?logged
+WHERE {
+  ?record a smedg:PhysicalRecord ;
+          smedg:hasClassification ?class .
+  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+  OPTIONAL { ?record smedg:storedIn ?storage . ?storage smedg:isSecureCabinet ?secureCabinet . }
+  OPTIONAL { ?record smedg:logged ?logged . }
+
+  FILTER( !(BOUND(?secureCabinet) && ?secureCabinet = true && BOUND(?logged) && ?logged = true) )
+}
+ORDER BY ?record
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?doc ?class
+WHERE {
+  ?doc a smedg:Document ;
+       smedg:hasClassification ?class .
+  FILTER (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted))
+
+  FILTER NOT EXISTS {
+    ?doc smedg:hasLabel ?label .
+    OPTIONAL { ?label smedg:labelLevel ?lvl . }
+    BIND (COALESCE(?lvl, smedg:Internal) AS ?labelLevel)
+    VALUES (?cls ?rank) {
+      (smedg:Public        1)
+      (smedg:Internal      2)
+      (smedg:Sensitive     3)
+      (smedg:Confidential  4)
+      (smedg:Restricted    5)
+    }
+    VALUES (?min ?minRank) { (smedg:Internal 2) }
+    BIND( IF(?labelLevel = ?cls, ?rank, UNDEF) AS ?lR_tmp )
+    BIND( COALESCE(?lR_tmp) AS ?labelRank )
+    FILTER( BOUND(?labelRank) && ?labelRank >= ?minRank )
+  }
+}
+ORDER BY ?doc
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:hasClassification ?class .
+  FILTER (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted))
+  OPTIONAL { ?asset smedg:owner ?owner . }
+  OPTIONAL { ?asset smedg:groupOwner ?gowner . }
+  FILTER( !(BOUND(?owner) && BOUND(?gowner)) )
+}
+ORDER BY ?asset
+
+
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?alert ?createdAt ?assignedTo
+WHERE {
+  ?alert a smedg:Alert ;
+         smedg:severity "High" ;
+         smedg:createdAt ?createdAt .
+  OPTIONAL { ?alert smedg:assignedTo ?assignedTo . }
+
+  BIND( NOW() - ?createdAt AS ?age )
+  FILTER( !BOUND(?assignedTo) || (?age > "PT2H"^^xsd:dayTimeDuration) )
+}
+ORDER BY ?alert
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?unit ?storage
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:fromUnit ?unit ;
+         smedg:storedIn ?storage .
+  FILTER NOT EXISTS { ?storage smedg:approvedForUnit ?unit . }
+}
+ORDER BY ?asset
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?assetClass ?unit ?maxAllowed
+WHERE {
+  ?event a smedg:DistributionEvent ;
+         smedg:to ?party ;
+         smedg:about ?asset ;
+         smedg:initiatedBy ?user .
+  ?party smedg:isExternal true .
+  ?asset smedg:hasClassification ?assetClass .
+  ?user  smedg:memberOf ?unit .
+  OPTIONAL { ?unit smedg:emailExternalAllowedMaxClass ?maxAllowed . }
+
+  VALUES (?cls ?rank) {
+    (smedg:Public        1)
+    (smedg:Internal      2)
+    (smedg:Sensitive     3)
+    (smedg:Confidential  4)
+    (smedg:Restricted    5)
+  }
+  BIND( IF(?assetClass = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+  BIND( COALESCE(?aR_tmp) AS ?assetRank )
+  OPTIONAL { BIND( IF(?maxAllowed = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+  BIND( COALESCE(?mR_tmp) AS ?maxRank )
+
+  FILTER( !BOUND(?maxRank) || (BOUND(?assetRank) && ?assetRank > ?maxRank) )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?doc ?unit ?class ?wmRequired ?minLabel
+WHERE {
+  ?doc a smedg:Document ;
+       smedg:hasClassification ?class ;
+       smedg:fromUnit ?unit .
+  OPTIONAL { ?unit smedg:watermarkRequiredAtOrAbove ?wmRequired . }
+  OPTIONAL {
+    ?unit smedg:labelMinimumByClass ?rule .
+    ?rule smedg:appliesToClass ?class ;
+          smedg:minLabelLevel  ?minLabel .
+  }
+  OPTIONAL { ?doc smedg:hasWatermark ?wm . }
+  OPTIONAL { ?doc smedg:hasLabel ?label . ?label smedg:labelLevel ?labelLvl . }
+
+  VALUES (?cls ?rank) {
+    (smedg:Public        1)
+    (smedg:Internal      2)
+    (smedg:Sensitive     3)
+    (smedg:Confidential  4)
+    (smedg:Restricted    5)
+  }
+  BIND( IF(?class = ?cls, ?rank, UNDEF) AS ?dR_tmp )
+  BIND( COALESCE(?dR_tmp) AS ?docRank )
+
+  OPTIONAL { BIND( IF(?wmRequired = ?cls, ?rank, UNDEF) AS ?wR_tmp ) }
+  BIND( COALESCE(?wR_tmp) AS ?wmRank )
+
+  OPTIONAL { BIND( IF(?labelLvl = ?cls, ?rank, UNDEF) AS ?lR_tmp ) }
+  BIND( COALESCE(?lR_tmp) AS ?labelRank )
+
+  OPTIONAL { BIND( IF(?minLabel = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+  BIND( COALESCE(?mR_tmp) AS ?minLabelRank )
+
+  BIND( IF(BOUND(?wmRank) && BOUND(?docRank) && ?docRank >= ?wmRank, true, false) AS ?needsWM )
+  BIND( IF(BOUND(?minLabelRank), true, false) AS ?needsLabel )
+
+  FILTER(
+    ( ?needsWM && !(BOUND(?wm) && ?wm = true) )
+    ||
+    ( ?needsLabel && !(BOUND(?labelRank) && ?labelRank >= ?minLabelRank) )
+  )
+}
+ORDER BY ?doc
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?class ?channel ?name
+WHERE {
+  ?event a smedg:TransferEvent ;
+         smedg:about ?asset ;
+         smedg:overChannel ?channel .
+  ?asset smedg:hasClassification ?class .
+  OPTIONAL { ?channel smedg:name ?name . }
+  OPTIONAL { ?channel smedg:allowedAtOrAbove ?minClass . }
+
+  VALUES (?cls ?rank) {
+    (smedg:Public        1)
+    (smedg:Internal      2)
+    (smedg:Sensitive     3)
+    (smedg:Confidential  4)
+    (smedg:Restricted    5)
+  }
+  BIND( IF(?class = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+  BIND( COALESCE(?aR_tmp) AS ?assetRank )
+
+  OPTIONAL { BIND( IF(?minClass = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+  BIND( COALESCE(?mR_tmp) AS ?minRank )
+
+  BIND( LCASE(STR(?name)) AS ?nm )
+  BIND( IF(BOUND(?minRank) && BOUND(?assetRank) && ?assetRank >= ?minRank, true, false) AS ?okByPolicy )
+  BIND( IF(BOUND(?nm) && ?nm = "usb" && BOUND(?assetRank) && ?assetRank >= 5, false, true) AS ?okUsbRestricted )
+
+  FILTER( !(?okByPolicy && ?okUsbRestricted) )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?user
+WHERE {
+  ?event a smedg:AuditEvent ;
+         smedg:changedProperty smedg:hasClassification ;
+         smedg:performedBy ?user .
+  FILTER ( NOT EXISTS { ?user smedg:hasRole "RecordsOfficer" } )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?class ?to ?user
+WHERE {
+  ?event a smedg:AuditEvent ;
+         smedg:about ?asset ;
+         smedg:movedTo ?to ;
+         smedg:performedBy ?user .
+  ?asset smedg:hasClassification ?class .
+  OPTIONAL { ?to smedg:isSecure true . }
+  OPTIONAL { ?to smedg:siteType ?siteType . }
+
+  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+  FILTER ( (BOUND(?siteType) && LCASE(STR(?siteType)) = "secure") || (EXISTS { ?to smedg:isSecure true }) )
+  FILTER ( NOT EXISTS { ?user smedg:hasRole "SiteOwner" } )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class ?storage ?isDraft
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:storedIn ?storage ;
+         smedg:hasClassification ?class .
+  ?storage smedg:hasFamily "OneDrive" .
+  OPTIONAL { ?asset smedg:isDraft ?isDraft . }
+  OPTIONAL { ?asset smedg:hasLabel ?label . }
+
+  FILTER (
+    (?class = smedg:Confidential)
+    ||
+    ( (?class IN (smedg:Internal, smedg:Sensitive)) && ( !(BOUND(?isDraft) && ?isDraft=true) || !BOUND(?label) ) )
+  )
+}
+ORDER BY ?asset
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?storage ?family ?isLegacy ?authorised ?allowLegacyOnly
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:storedIn ?storage .
+  OPTIONAL { ?storage smedg:hasFamily ?family . }
+  OPTIONAL { ?storage smedg:isAuthorised ?authorised . }
+  OPTIONAL { ?storage smedg:allowLegacyOnly ?allowLegacyOnly . }
+  OPTIONAL { ?asset  smedg:isLegacy ?isLegacy . }
+
+  BIND( LCASE(STR(?family)) AS ?fam )
+  FILTER(
+    (BOUND(?authorised) && ?authorised = false)
+    ||
+    (?fam = "googledrive" && (BOUND(?allowLegacyOnly) && ?allowLegacyOnly = true) && !(BOUND(?isLegacy) && ?isLegacy = true))
+  )
+}
+ORDER BY ?asset
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?asset ?class ?storage ?family
+WHERE {
+  ?asset a smedg:Asset ;
+         smedg:storedIn ?storage ;
+         smedg:hasClassification ?class .
+  ?storage smedg:hasFamily ?family .
+  FILTER ( LCASE(STR(?family)) IN ("networkdrive","eresearch") )
+  FILTER ( ?class NOT IN (smedg:Public, smedg:Internal) )
+}
+ORDER BY ?asset
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?class ?enc ?oob ?dd ?dp
+WHERE {
+  ?event a smedg:DistributionEvent ;
+         smedg:to ?party ;
+         smedg:about ?asset .
+  ?party smedg:isExternal true .
+  ?asset smedg:hasClassification ?class .
+
+  OPTIONAL { ?event smedg:encrypted ?enc . }
+  OPTIONAL { ?event smedg:passwordOutOfBand ?oob . }
+  OPTIONAL { ?event smedg:drmDisableDownload ?dd . }
+  OPTIONAL { ?event smedg:drmDisablePrint ?dp . }
+
+  FILTER (
+    (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) && !(BOUND(?enc) && ?enc=true && BOUND(?oob) && ?oob=true))
+    ||
+    (?class IN (smedg:Confidential, smedg:Restricted) && !(BOUND(?dd) && ?dd=true && BOUND(?dp) && ?dp=true))
+  )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?class ?encrypted ?handDelivered ?custodyLogged
+WHERE {
+  ?event a smedg:TransferEvent ;
+         smedg:about ?asset ;
+         smedg:overChannel ?channel .
+  ?asset smedg:hasClassification ?class .
+  ?channel smedg:name "PortableMedia" .
+
+  OPTIONAL { ?event smedg:encrypted ?encrypted . }
+  OPTIONAL { ?event smedg:handDelivered ?handDelivered . }
+  OPTIONAL { ?event smedg:custodyLogged ?custodyLogged . }
+
+  FILTER ( ?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) )
+  FILTER ( !(BOUND(?encrypted) && ?encrypted=true && BOUND(?handDelivered) && ?handDelivered=true && BOUND(?custodyLogged) && ?custodyLogged=true) )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?event ?asset ?class ?destructionMethod ?archiveRoute
+WHERE {
+  ?event a smedg:AuditEvent ;
+         smedg:about ?asset .
+  ?asset smedg:hasClassification ?class .
+  OPTIONAL { ?event smedg:destructionMethod ?destructionMethod . }
+  OPTIONAL { ?event smedg:archiveRoute ?archiveRoute . }
+
+  FILTER (
+    (BOUND(?destructionMethod) && NOT EXISTS { ?class smedg:allowedDestructionMethod ?destructionMethod })
+    ||
+    (BOUND(?archiveRoute) && NOT EXISTS { ?class smedg:allowedArchiveRoute ?archiveRoute })
+  )
+}
+ORDER BY ?event
+
+
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+SELECT ?chat ?class ?sanitised ?membershipOk
+WHERE {
+  ?chat a smedg:TeamsChat ;
+        smedg:hasClassification ?class .
+  FILTER (?class = smedg:Confidential)
+
+  OPTIONAL { ?chat smedg:linkedToStorage ?storage . ?storage smedg:isSecure true . }
+  OPTIONAL { ?chat smedg:sanitised ?sanitised . }
+  OPTIONAL { ?chat smedg:membershipHygieneOk ?membershipOk . }
+
+  FILTER ( !(EXISTS { ?chat smedg:linkedToStorage ?s . ?s smedg:isSecure true } || (BOUND(?sanitised) && ?sanitised=true)) 
+           || !(BOUND(?membershipOk) && ?membershipOk=true) )
+}
+ORDER BY ?chat
+
+
