@@ -1,0 +1,825 @@
+<urn:SMEDG_Prototype:Alert_1> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Alert" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
+Issues we raise when a check fails (e.g., mis-labelled asset, insecure storage) and track to closure.
+Properties
+Prop	Type	Why
+severity	xsd:string	“High/Med/Low” – P11.
+status	xsd:string	Open/In-Progress/Closed.
+createdAt / assignedAt	xsd:dateTime	Timeliness checks (P11)." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-orange" .
+<urn:SMEDG_Prototype:AuditEvent> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "AuditEvent" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	We performed a governance action (change classification, apply label, move storage, assign/close alert). Captures who/when, what changed, and whether an operational time requirement was met.
+Properties	eventType: enum(\"ChangeClass\",\"ApplyLabel\",\"MoveAsset\",\"AssignAlert\",\"CloseAlert\",...); changedProperty: string (e.g., hasClassification); fromValue: string/IRI, toValue: string/IRI; withinTimeRequirement: boolean (e.g., “high-severity alert assigned within 2 hours” in P11); `severity: string" ;
+  <tag:stardog:designer:colorId> "sd-qb-teal" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Events> .
+<urn:SMEDG_Prototype:Channel> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Channel" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
+The means by which information moves: Email, USB, PortableMedia, Link, etc.
+Model as a class with instances so SHACL can test “overChannel is USB” (P17,P31,P33,P47).
+Properties
+Prop	Type	Why
+name	xsd:string	“Email”, “USB”, “PortableMedia”.
+isElectronic	xsd:boolean	Convenience filter." ;
+  <tag:stardog:designer:colorId> "sd-qb-red" .
+<urn:SMEDG_Prototype:Class1> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Asset" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Any managed thing: Document/File, Email, TeamsChat, PhysicalRecord, etc. Subclasses inherit common checks.
+A parent class for all governed information. It holds classification, storage, ownership, labels, and processing so every rule can find what it needs.
+Properties	id, title: string; 
+isBusinessRecord: boolean → for OneDrive & TRIM rules; 
+createdAt: dateTime; 
+retentionDays: integer (P5/P26); 
+destructionMethod, archiveRoute: string (P48).
+hasClassification → Classification → the core security class.
+hasLabel → Label → applied labels (“Internal”, “Confidential”).
+ownedBy → OrgUnit → business ownership (rules by unit).
+hasOwner → User (0..1) → steward for workflow.
+isDraft : xsd:boolean → needed by some storage rules (OneDrive draft-only)." ;
+  <tag:stardog:designer:colorId> "sd-qb-red" .
+<urn:SMEDG_Prototype:Class2> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Classification" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "The official sensitivity level of information. We attach it to every Asset so rules know how strict to be.
+The information-security class for content. We model classes as instances so other things (assets, platforms, services) can point to them.
+Typical instances
+Public, Internal, Sensitive, Confidential, Restricted
+code: string → human label used on screens; 
+rank: integer → numeric order (Public=1, Internal=2, Sensitive=3, Confidential=4) so SHACL can test “≥ Internal”;
+order : xsd:int → numeric rank so you can compare (“Confidential (4) > Internal (2)”).
+description: string → shows the policy text to users;
+(optional) retentionDaysDefault: integer → baseline retention used by P5/P26." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-orange" .
+<urn:SMEDG_Prototype:DistributionEvent> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "DistributionEvent" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	We shared an asset with someone (email attachment, shared link, shared folder). We need to prove proper controls.
+Properties	toExternal: boolean (P3, P14, P23, P46); encrypted: boolean; passwordOutOfBand: boolean; drmDownloadDisabled: boolean; useLink: boolean (prefer link over attachment) → all used by P46; needToKnowBasis: boolean, hasAuthorisation: boolean → used where policy requires business justification for sharing." ;
+  <tag:stardog:designer:colorId> "sd-qb-yellow-green" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Events> .
+<urn:SMEDG_Prototype:Document> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Document" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Electronic documents (Word/PDF/etc.). For Internal+, policy expects headers/footers and often a watermark.
+Properties	hasWatermark: boolean, headerFooterApplied: boolean → required for P2, P35; we store them to prove it." ;
+  <tag:stardog:designer:colorId> "sd-qb-green" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:Email> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Email" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Email messages where we check subject label and sensitivity tag for Internal+, and we ensure attachments aren’t too sensitive for external recipients.
+Properties	subjectHasLabel: boolean, sensitivityTagSet: boolean, toExternal: boolean." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-blue-1" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:Events> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Event" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A simple “something happened” ancestor so we can report who did what to which asset when.
+Properties	at: dateTime (when)." ;
+  <tag:stardog:designer:colorId> "sd-qb-gold" .
+<urn:SMEDG_Prototype:ExternalContact> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "ExternalContact" ;
+  <tag:stardog:designer:colorId> "sd-qb-light-purple-1" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Party> .
+<urn:SMEDG_Prototype:File> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "File" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Binary files (zip, pst, images, etc.). We apply visual cues and property labels, and restrict risky types for GenAI.
+Properties	fileType: string; visibleBanner: boolean; filePropertyLabel: boolean; fileNameHasLabel: boolean." ;
+  <tag:stardog:designer:colorId> "sd-qb-teal" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:GenAIJob> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "GenAIJob" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
+A record of one run of GenAI processing (e.g., “User A used Copilot to summarise Document D at 10:42”).
+It captures who ran it, what was processed, which platform/tenant/account was used, when it started/ended, and whether it complied with your rules.
+Properties (type → why)
+•	jobId: string → a unique identifier from logs (helps join to SIEM/telemetry).
+•	startedAt: xsd:dateTime / endedAt: xsd:dateTime → duration, recency, SLAs for reviews.
+•	status: string (e.g., “completed”, “blocked”, “failed”) → simple outcome.
+•	purpose: string (e.g., “summarise”, “translate”) → context for risk.
+•	usedPersonalAccount: xsd:boolean → was a personal account used? (policy check).
+•	notes: string → free text for incident reviewers." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-purple-2" .
+<urn:SMEDG_Prototype:GenAIPlatform> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "GenAIPlatform" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	What it is + Usage (goal)
+A tool/service used for AI processing, e.g., “Azure OpenAI”, “Bing/Copilot”, “ChatGPT”. Policies limit which class of data can be sent to which platform and to which tenant.
+A named GenAI product (Bing/Copilot, Azure OpenAI, ChatGPT, Gemini…). We enforce sign-in and classification ceilings.
+Properties	•	name : xsd:string → human name.
+•	allowedMaxClass → Classification → ceiling for content class on this platform.
+•	requiresOrgSignIn : xsd:boolean → some tools must use your org account (P38).
+•	otherConstraints : xsd:string → free text for special rules." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-orange" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Platform> .
+<urn:SMEDG_Prototype:Label> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Label" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Proof of visible markings and file metadata that help humans handle information correctly (subject tags, headers/footers, watermarks, banners, file property labels, file name labels).
+Properties (type → why)	subjectHasLabel: boolean → used for email (P36);
+headerFooterApplied: boolean, watermarkApplied: boolean → page labels (P2, P35);
+visibleBanner: boolean → on-screen cue (P37);
+filePropertyLabel: boolean → OS/file label (P37);
+fileNameHasLabel: boolean → for naming guidance;
+appliedAt: dateTime / appliedBy: string/IRI → provenance and automation (P20)." ;
+  <tag:stardog:designer:colorId> "sd-qb-orange" .
+<urn:SMEDG_Prototype:OrgUnit> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "OrgUnit" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A department/team (e.g., Finance). Some requirements are stricter by unit (e.g., some require watermarks for Internal; others only for Sensitive).
+Properties	name, code: string; 
+requiresWatermarkMinRank: int, minLabelRank: int, approvedStorageFamilies: string list → enable “by-unit” policy with no schema changes." ;
+  <tag:stardog:designer:colorId> "sd-qb-gold" .
+<urn:SMEDG_Prototype:Party> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Party" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	Party (abstract, a container type—don’t create raw Party instances)
+•	User ⊑ Party 
+•	ExternalContact ⊑ Party (new, for outside people; create as needed)
+Properties:
+displayName : xsd:string (for reporting)
+email : xsd:string (optional for Users; required for ExternalContact)
+isExternal : xsd:boolean (true for ExternalContact; false for User)" ;
+  <tag:stardog:designer:colorId> "sd-qb-light-blue-2" .
+<urn:SMEDG_Prototype:PhysicalRecord> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "PhysicalRecord" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	Paper records where policy demands cover sheet, header/footer, and sometimes secure cabinets plus logging.
+Properties	needsCoverSheet: boolean, headersFootersApplied: boolean, logged: boolean." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-purple-1" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:Platform> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Platform" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A parent for any processing platform (now GenAI, later analytics, transcription, etc.). Keeps your ontology stable as you add new tech.
+Properties	none here (children define)." ;
+  <tag:stardog:designer:colorId> "sd-qb-red" .
+<urn:SMEDG_Prototype:PolicyExclusion> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "PolicyExclusion" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	An explicit “exception” tag for cases like Government-classified material that must not be stored/processed in UTS systems at all. Not a classification or a label—it’s an override.
+Properties	isGovClassified: boolean; reason: string." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-blue-1" .
+<urn:SMEDG_Prototype:ServiceFamily> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "ServiceFamily" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
+A controlled list that says what kind of storage service this is.
+Examples: SharePoint, OneDrive, NetworkDrive, TRIM/Content Manager, GoogleDrive, eResearch, TeamsFiles.
+We reference these instead of typing strings, so policies like “OneDrive may hold Internal (draft) only” are reliable.
+Properties (type → why)
+(Usually none beyond a name/label—families are just identifiers.)
+•	rdfs:label : xsd:string → human-friendly name (“SharePoint”)
+Relationships (purpose)
+•	Used by StorageService hasFamily → ServiceFamily
+Purpose: lets rules target a type of store consistently (no string compares)." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-purple-2" .
+<urn:SMEDG_Prototype:StorageService> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "StorageService" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)
+A concrete storage endpoint (e.g., “Research Team SharePoint Site”, “Legal OneDrive”, “Records TRIM repo”). Rules read the service’s attributes to decide what class of data it may host.
+Properties (type → why)
+•	name : xsd:string → friendly name.
+•	siteType : xsd:string (\"Secure\" | \"Standard\") → crucial for P1/P34 (“Confidential must be in Secure”).
+•	region : xsd:string (\"AU\",\"EU\",\"US\",…) → data residency checks.
+•	approved : xsd:boolean → allow-list control; false = legacy / unapproved.
+•	approvedForMaxClass → Classification → highest classification this service may hold (object link).
+•	supportsWatermarking : xsd:boolean → helps page-labelling rules (P2/P35).
+•	isLegacy : xsd:boolean → used by P44 (e.g., GoogleDrive allowed only if legacy).
+Relationships (purpose)
+•	hasFamily → ServiceFamily → target general rules (“OneDrive restrictions”).
+•	approvedForUnit → OrgUnit (0..n) → unit-specific approval (P12/P21).
+•	From assets: Asset storedIn → StorageService (canonical direction) → core for storage compliance.
+•	From Teams: TeamsChat linkedToStorage → StorageService → proves the chat is backed by a secure site (P41)." ;
+  <tag:stardog:designer:colorId> "sd-qb-cream" .
+<urn:SMEDG_Prototype:TeamsChat> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "TeamsChat" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A Teams channel or chat (standard, private, or shared channel; 1:1 or group chat).
+Goal: keep Confidential content safe in Teams. Two safe routes:
+1.	Link the chat/channel to a secure SharePoint site (backing site) that enforces security; or
+2.	Sanitise the content (remove/redact sensitive material) and ensure membership is tight (only the right people are in the chat).
+Teams channels/chats. Confidential content should be tied to a secure site or be sanitised, and membership must be clean.
+A Teams channel/chat. Either link to a Secure SharePoint site or sanitise & keep membership clean when higher classes are discussed.
+Properties	sanitised : xsd:boolean → Has someone reviewed/redacted the conversation so sensitive content is not present? → redaction done if no secure site.
+Used when you cannot link to a secure site; if true, policy can accept the chat for Internal/Sensitive scenarios that allow redaction.
+membershipHygieneOk : xsd:boolean → Are chat members up to date (no leavers, no external guests if not allowed, least-privilege)? → only the right people are inside.
+We check this so we don’t share Confidential content with the wrong audience.
+channelType : xsd:string (enum: \"standard\" | \"private\" | \"shared\" | \"chat\") → Different types carry different risks.
+For example, shared channels can span tenants; your policy may disallow Confidential there.
+ lastReview : xsd:dateTime → When was the last content/membership hygiene review done?
+Lets you flag stale channels." ;
+  <tag:stardog:designer:colorId> "sd-qb-light-blue-2" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:Tenant> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "Tenant" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A Tenant is your organisation’s own environment inside a cloud platform—your company’s slice of Microsoft 365, Azure OpenAI, Google Workspace, etc.
+It has its own admins, settings, data, and region (e.g., AU vs US). Policies often say “use the approved AU tenant only”.
+The organisation’s instance of a cloud service (e.g., the approved production AU tenant of Azure OpenAI). Encodes approval, region, and optional class ceiling by tenant.
+Why model it (not just “cloud service”)?
+•	We need to control which environment exactly is allowed (prod AU ok; dev US not).
+•	We need data residency checks (AU only).
+•	We can set a sensitivity cap per tenant (e.g., this tenant can handle up to Internal).
+•	We can show ownership and escalation (who runs the tenant).
+•	We can audit which tenant actually processed an action.
+Properties	•	name : xsd:string → e.g., “Finance-Azure-AU”.
+•	provider : xsd:string (\"Microsoft\",\"Google\",…) → provenance.
+•	region : xsd:string (\"AU\",\"EU\",\"US\",…) → residency checks.
+•	approved : xsd:boolean → allow-list (only true tenants should be used).
+•	(optional) tenantMaxClass → Classification → cap by environment (sometimes stricter than platform).
+•	(optional) ownerUnit → OrgUnit → who runs the tenant (for escalation/reporting)." ;
+  <tag:stardog:designer:colorId> "sd-qb-orange" .
+<urn:SMEDG_Prototype:TransferEvent> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "TransferEvent" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	We moved data via a channel (email, USB, portable media). Focuses on channel and custody for physical media.
+Properties	channel: enum(\"Email\",\"USB\",\"PortableMedia\",\"Link\",\"Other\") (P17–P18/P31–P33); encrypted: boolean (relevant to portable media and some email channels); handDelivered: boolean, custodyLogged: boolean (P47)." ;
+  <tag:stardog:designer:colorId> "sd-qb-green" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Events> .
+<urn:SMEDG_Prototype:User> a <http://www.w3.org/2002/07/owl#Class> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "User" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "What it is + Usage (goal)	A person who creates, shares, changes or approves things. We need roles for “who is allowed to do what” and sign-in state for GenAI/Cloud rules.
+Properties	displayName: string; 
+isOrgSignedIn: boolean → required for Bing/Copilot/GenAI (P38/related); 
+hasRole: string set → e.g., RecordsOfficer, SiteOwner, DLPScanner (P19, P27, P29, P20)." ;
+  <tag:stardog:designer:colorId> "sd-qb-yellow-green" ;
+  <http://www.w3.org/2000/01/rdf-schema#subClassOf> <urn:SMEDG_Prototype:Party> .
+
+<urn:SMEDG_Prototype:about> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "about" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "about → Asset (what)" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Events> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:about_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "about" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "Supports the “do not store here” rule when required (complements P44-style bans)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:PolicyExclusion> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:about_2> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "about" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "about → Asset	What the alert is about." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:allowedMaxClass_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "allowedMaxClass" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "allowedMaxClass → Classification → ceiling for content class on this platform." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIPlatform> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:appliesTo> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "appliesTo" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "appliesTo → Asset (which asset is labelled)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:approvedForMaxClass> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approvedForMaxClass" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:approvedForUnit> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approvedForUnit" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "approvedForUnit → OrgUnit (0..n) → unit-specific approval (P12/P21)" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:approvedForUnit_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approvedForUnit" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "approvedForUnit → OrgUnit → only these units may use it." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:assignedTo> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "assignedTo" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "assignedTo → User	User	Ownership/time to assign – P11." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:User> .
+<urn:SMEDG_Prototype:disallowedAtOrAbove> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "disallowedAtOrAbove" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	disallowedAtOrAbove : → Classification → e.g., USB disallowed at Restricted and above." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Channel> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:evidenceEvent> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "evidenceEvent" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:AuditEvent> .
+<urn:SMEDG_Prototype:fromUnit> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "fromUnit" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "fromUnit" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Email> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:hasAttachment> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasAttachment" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "hasAttachment → Asset (for the policy checks on attachments)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Email> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:hasClassification> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasClassification" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:hasFamily> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasFamily" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	Used by StorageService hasFamily → ServiceFamily
+Purpose: lets rules target a type of store consistently (no string compares)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:ServiceFamily> .
+<urn:SMEDG_Prototype:hasLabel> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasLabel" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "hasLabel → Label → applied labels (“Internal”, “Confidential”)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Label> .
+<urn:SMEDG_Prototype:hasOwner> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasOwner" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "hasOwner → User (0..1) → steward for workflow." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:User> .
+<urn:SMEDG_Prototype:hosts> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hosts" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "hosts → GenAIPlatform (0..n) (inverse of GenAIPlatform inTenant) → each platform instance lives in a tenant." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:GenAIPlatform> .
+<urn:SMEDG_Prototype:initiatedBy> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "initiatedBy" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "initiatedBy → User → who ran it (for accountability and user-centric reports)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:User> .
+<urn:SMEDG_Prototype:inTenant> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "inTenant" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	inTenant → Tenant → says which environment this instance belongs to (region/approval)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIPlatform> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Tenant> .
+<urn:SMEDG_Prototype:inTenant_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "inTenant" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "inTenant → Tenant → which tenant/account (e.g., “Finance-Azure-AU”).
+Often this can be inferred from processedOn.inTenant, but keeping it explicit on the job makes querying easier." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Tenant> .
+<urn:SMEDG_Prototype:linkedToStorage> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "linkedToStorage" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "TeamsChat linkedToStorage → StorageService → proves the chat is backed by a secure site (P41)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TeamsChat> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:StorageService> .
+<urn:SMEDG_Prototype:memberOf> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "memberOf" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "memberOf → OrgUnit; appears as performedBy on events." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:User> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:movedTo> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "movedTo" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "movedTo → StorageService (when eventType=\"MoveAsset\");" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:StorageService> .
+<urn:SMEDG_Prototype:overChannel> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "overChannel" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	DistributionEvent → overChannel → Channel
+(sharing with people: email, link, shared folder)" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Channel> .
+<urn:SMEDG_Prototype:overChannel_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "overChannel" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	Transfer → overChannel → Channel
+(moving via USB/Portable media/Network share)" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Channel> .
+<urn:SMEDG_Prototype:ownedBy> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "ownedBy" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "ownedBy → OrgUnit (or → User)," ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:ownerUnit> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "ownerUnit" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "ownerUnit → OrgUnit → who runs the tenant (for escalation/reporting)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:OrgUnit> .
+<urn:SMEDG_Prototype:owns> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "owns" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "owns → Asset (custodianship); hasMember ← User." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:performedBy> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "performedBy" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Events> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:User> .
+<urn:SMEDG_Prototype:processedOn> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "processedOn" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:GenAIPlatform> .
+<urn:SMEDG_Prototype:processedOn_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "processedOn" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "processedOn → GenAIPlatform → which platform (Copilot, Azure OpenAI, ChatGPT, …)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:GenAIPlatform> .
+<urn:SMEDG_Prototype:producedAsset> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "producedAsset" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "producedAsset → Asset (0..n) (optional) → outputs (e.g., a summary file)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:raisedBy> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "raisedBy" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "raisedBy → User	User	Provenance." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:User> .
+<urn:SMEDG_Prototype:requiresEncryptionFrom> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "requiresEncryptionFrom" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "•	requiresEncryptionFrom : → Classification → e.g., for PortableMedia, require encryption from Internal and above." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Channel> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:resultedInAlert> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "resultedInAlert" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "resultedInAlert → Alert (0..n) (optional) → link to any alerts opened." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Alert_1> .
+<urn:SMEDG_Prototype:storedIn> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "storedIn" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "storedIn → StorageService → core of storage policies." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:StorageService> .
+<urn:SMEDG_Prototype:storedIn_1> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "storedIn" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "storedIn → StorageService (e.g., secure cabinet where isSecure=true)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:PhysicalRecord> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:StorageService> .
+<urn:SMEDG_Prototype:tenantMaxClass> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "tenantMaxClass" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "tenantMaxClass → Classification → cap by environment (sometimes stricter than platform)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class2> .
+<urn:SMEDG_Prototype:to> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "to" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Party> .
+<urn:SMEDG_Prototype:toRecipient> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "toRecipient" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "toRecipient (0..n) → Party
+Purpose: list everyone you shared with (internal users or external contacts)." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Party> .
+<urn:SMEDG_Prototype:usedAsset> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "usedAsset" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "usedAsset → Asset (0..n) → the input items (files, messages, records)" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+<urn:SMEDG_Prototype:usedBy> a <http://www.w3.org/2002/07/owl#ObjectProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "usedBy" ;
+  <http://www.w3.org/2000/01/rdf-schema#comment> "usedBy → Asset." ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <urn:SMEDG_Prototype:Class1> .
+
+<urn:SMEDG_Prototype:appliedAt> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "appliedAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:appliedBy> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "appliedBy" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:approved> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approved" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:approved_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approved" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:approvedStorageFamilies> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "approvedStorageFamilies" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:archiveRoute> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "archiveRoute" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:at> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "occurredAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Events> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:changedProperty> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "changedProperty" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:channel> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "channel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:channelType> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "channelType" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TeamsChat> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:code> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "code" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class2> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:code_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "code" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:createdAt> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "createdAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:createdAt_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "createdAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:custodyLogged> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "custodyLogged" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:description> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "description" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class2> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:destructionMethod> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "destructionMethod" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:displayName> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "displayName" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:User> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:displayName_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "displayName" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Party> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:domain> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "domain" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:ExternalContact> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:drmDisablePrint> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "drmDisablePrint" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:drmDownloadDisabled> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "drmDownloadDisabled" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:email> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "email" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Party> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:encrypted> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "encrypted" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:encrypted_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "encrypted" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:endedAt> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "endedAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:eventType> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "eventType" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:fileNameHasLabel> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "fileNameHasLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:fileNameHasLabel_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "fileNameHasLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:File> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:filePropertyLabel> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "filePropertyLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:filePropertyLabel_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "filePropertyLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:File> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:fileType> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "fileType" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:File> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:fromValue> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "oldValue" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:handDelivered> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "handDelivered" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TransferEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:hasAuthorisation> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasAuthorisation" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:hasRole> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasRole" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:User> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:hasWatermark> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "hasWatermark" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Document> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:headerFooterApplied> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "headerFooterApplied" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:headerFooterApplied_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "headerFooterApplied" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Document> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:id> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "id" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:isBusinessRecord> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isBusinessRecord" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isDraft> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isDraft" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isElectronic> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isElectronic" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Channel> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isExternal> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isExternal" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Party> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isExternal_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isExternal" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:ExternalContact> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isLegacy> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isLegacy" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:isOrgSignedIn> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "isOrgSignedIn" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:User> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:jobId> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "jobId" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:label> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "label" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:ServiceFamily> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:lastReview> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "lastReview" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TeamsChat> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:membershipHygieneOk> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "membershipHygieneOk" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TeamsChat> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:minLabelRank> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "minLabelRank" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:name> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "name" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:name_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "name" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:name_2> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "name" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIPlatform> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:name_3> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "name" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:name_4> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "name" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Channel> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:needToKnowBasis> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "needToKnowBasis" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:newValue> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "newValue" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:notes> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "notes" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:order> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "order" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class2> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:otherConstraints> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "otherConstraints" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIPlatform> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:passwordOutOfBand> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "passwordOutOfBand" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:provider> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "provider" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:purpose> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "purpose" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:rank> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "rank" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class2> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:reason> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "reason" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:region> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "region" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:region_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "region" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Tenant> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:requiresOrgSignIn> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "requiresOrgSignIn" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIPlatform> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:requiresWatermarkMinRank> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "requiresWatermarkMinRank" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:OrgUnit> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:retentionDays> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "retentionDays" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:retentionDaysDefault> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "retentionDaysDefault" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class2> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#integer> .
+<urn:SMEDG_Prototype:sanitised> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "sanitised" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:TeamsChat> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:sensitivityTagSet> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "sensitivityTagSet" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Email> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:severity> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "severity" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:severity_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "severity" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:siteType> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "siteType" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:startedAt> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "startedAt" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#dateTime> .
+<urn:SMEDG_Prototype:status> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "status" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:status_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "status" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Alert_1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:subjectHasLabel> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "subjectHasLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:subjectHasLabel_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "subjectHasLabel" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Email> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:supportsWatermarking> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "supportsWatermarking" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:StorageService> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:title> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "title" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Class1> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:toExternal> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "toExternal" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Email> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:toExternal_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "toExternal" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:toValue> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "toValue" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#string> .
+<urn:SMEDG_Prototype:usedPersonalAccount> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "usedPersonalAccount" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:GenAIJob> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:useLink> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "useLink" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:DistributionEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:visibleBanner> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "visibleBanner" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:visibleBanner_1> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "visibleBanner" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:File> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:watermarkApplied> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "watermarkApplied" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:Label> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:SMEDG_Prototype:withinTimeRequirement> a <http://www.w3.org/2002/07/owl#DatatypeProperty> ;
+  <http://www.w3.org/2000/01/rdf-schema#label> "withinTimeRequirement" ;
+  <https://schema.org/domainIncludes> <urn:SMEDG_Prototype:AuditEvent> ;
+  <https://schema.org/rangeIncludes> <http://www.w3.org/2001/XMLSchema#boolean> .
