@@ -1,0 +1,1037 @@
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ01_ConfidentialAsset_StorageShape
+        a sh:NodeShape ;
+        rdfs:label "CQ1: Confidential+ assets must be in Secure/approved storage" ;
+        sh:targetClass smedg:Asset ;
+        sh:sparql [
+            a sh:SPARQLConstraint ;
+            sh:message "Violation of Policy P1 — If an Asset is Confidential, it must be stored in a Secure SharePoint site (or equivalent secure recordkeeping location). (CQ1)" ;
+            sh:select """
+                PREFIX smedg: <urn:SMEDG_Prototype:>
+                SELECT ?this ?storage
+                WHERE {
+                  ?this smedg:hasClassification ?class .
+                  FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+                  ?this smedg:storedIn ?storage .
+                  OPTIONAL { ?storage smedg:siteType ?siteType . }
+                  OPTIONAL { ?storage smedg:approvedForMaxClass ?maxClass . }
+
+                  FILTER ( !(BOUND(?siteType) && LCASE(STR(?siteType)) = "secure")
+                           &&
+                           !(BOUND(?maxClass) && ?maxClass IN (smedg:Confidential, smedg:Restricted)) )
+                }
+            """ ;
+        ] .
+
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ02_Document_WatermarkOrLabel_Shape
+        a sh:NodeShape ;
+        rdfs:label "CQ2: Confidential+ documents must have a watermark or visible label" ;
+        sh:targetClass smedg:Document ;
+        sh:sparql [
+            a sh:SPARQLConstraint ;
+            # Embed policy number and plain-English rule
+            sh:message "Violation of Policy P2 — A Document that is Confidential or higher must carry a watermark/visible indicator on every page. (CQ2)" ;
+            sh:select """
+              PREFIX smedg: <urn:SMEDG_Prototype:>
+              SELECT ?this
+              WHERE {
+                # Only check Confidential/Restricted documents
+                ?this smedg:hasClassification ?class .
+                FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+                # Properties may or may not be present
+                OPTIONAL { ?this smedg:hasWatermark ?wm . }
+                OPTIONAL { ?this smedg:headerLabel ?h . }
+                OPTIONAL { ?this smedg:footerLabel ?f . }
+
+                # Treat non-empty header/footer as "visible indicator present"
+                BIND( IF(BOUND(?h) && STRLEN(STR(?h)) > 0, true, false) AS ?hasHeader )
+                BIND( IF(BOUND(?f) && STRLEN(STR(?f)) > 0, true, false) AS ?hasFooter )
+
+                # Violation when NOT (watermark=true OR header/footer present)
+                FILTER ( !(BOUND(?wm) && ?wm = true) && !(?hasHeader || ?hasFooter) )
+              }
+            """ ;
+        ] .
+
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ03_Email_Attachments_Shape
+        a sh:NodeShape ;
+        rdfs:label "CQ3: External emails must not include Restricted or Confidential attachments" ;
+        sh:targetClass smedg:Email ;
+        sh:sparql [
+            a sh:SPARQLConstraint ;
+            sh:message "Violation of Policy P3 — External emails must not include Restricted or Confidential attachments. (CQ3)" ;
+            sh:select """
+              PREFIX smedg: <urn:SMEDG_Prototype:>
+              SELECT ?this ?attachment ?class
+              WHERE {
+                # Target only external emails
+                ?this smedg:toExternal true .
+
+                # Follow attachments and their classification
+                ?this smedg:hasAttachment ?attachment .
+                ?attachment smedg:hasClassification ?class .
+
+                # Violation if attachment classification is Confidential or Restricted
+                FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+              }
+            """ ;
+        ] .
+
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ04_GenAIJob_Compliance_Shape
+        a sh:NodeShape ;
+        rdfs:label "CQ4: GenAI jobs must respect platform max and run in approved tenants/regions" ;
+        sh:targetClass smedg:GenAIJob ;
+        sh:sparql [
+          a sh:SPARQLConstraint ;
+          sh:message "Violation of Policies P4, P13/P22/P28/P30, P39/P40, P38 — GenAI job exceeds platform max and/or tenant/region/family/org-sign-in rules. (CQ4)" ;
+          sh:select """
+            PREFIX smedg: <urn:SMEDG_Prototype:>
+            SELECT ?this ?asset ?assetClass ?platform ?allowed ?tenant ?reason
+            WHERE {
+              # Job → asset, platform, tenant
+              ?this     smedg:usedAsset   ?asset ;
+                        smedg:processedOn ?platform ;
+                        smedg:inTenant    ?tenant .
+
+              # Asset classification and ranking table
+              ?asset smedg:hasClassification ?assetClass .
+              VALUES (?cls ?rank) {
+                (smedg:Public        1)
+                (smedg:Internal      2)
+                (smedg:Sensitive     3)     # keep if you use 'Sensitive'; harmless if absent
+                (smedg:Confidential  4)
+                (smedg:Restricted    5)
+              }
+              BIND( IF(?assetClass = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+              # get a single numeric rank for the asset
+              BIND( COALESCE(?aR_tmp) AS ?assetRank )
+
+              # Platform max class (required for compliance)
+              OPTIONAL { ?platform smedg:allowedMaxClass ?allowed . }
+              OPTIONAL {
+                ?platform smedg:allowedMaxClass ?allowed .
+                BIND( IF(?allowed = ?cls, ?rank, UNDEF) AS ?alR_tmp )
+              }
+              BIND( COALESCE(?alR_tmp) AS ?allowedRank )
+
+              # Tenant approval & region
+              OPTIONAL { ?tenant  smedg:approved  ?tenantApproved . }
+              OPTIONAL { ?tenant  smedg:region    ?region . }  # e.g., "AU"
+
+              # Platform family caps (optional)
+              OPTIONAL { ?platform smedg:hasFamily ?family . }   # e.g., "AzureOpenAI" | "PublicGenAI" | "BingCopilot"
+
+              # Org sign-in for Copilot/Bing (optional)
+              OPTIONAL { ?this smedg:initiatedBy ?user . ?user smedg:isOrgSignedIn ?orgSignedIn . }
+
+              # --------------------------
+              # Compute compliance booleans
+              # --------------------------
+
+              # 1) Platform cap (P4): require allowedRank and assetRank and assetRank <= allowedRank
+              BIND( IF(BOUND(?allowedRank) && BOUND(?assetRank) && (?assetRank <= ?allowedRank), true, false) AS ?okMax )
+
+              # 2) Tenant approval (P13/P22/P28): require tenantApproved=true
+              BIND( IF(BOUND(?tenantApproved) && ?tenantApproved = true, true, false) AS ?okTenant )
+
+              # 3) Region rule (P30): only AU tenants (apply only if region is present)
+              BIND( IF(BOUND(?region), LCASE(STR(?region)) = "au", true) AS ?okRegion )
+
+              # 4) Family caps (P39/P40): if family known, enforce caps; otherwise treat as OK
+              BIND( LCASE(STR(?family)) AS ?fam )
+              BIND( IF(BOUND(?fam) && ?fam = "azureopenai",
+                       IF(BOUND(?assetRank) && (?assetRank <= 2), true, false),   # Azure OpenAI ≤ Internal
+                       true) AS ?okAzure )
+
+              BIND( IF(BOUND(?fam) && ?fam = "publicgenai",
+                       IF(BOUND(?assetRank) && (?assetRank <= 1), true, false),   # Public GenAI = Public only
+                       true) AS ?okPublic )
+
+              # 5) Copilot/Bing org-sign-in (P38): if fam is copilot/bingcopilot and class ≥ Internal ⇒ must be signed in
+              BIND( IF(BOUND(?fam) && (?fam = "bingcopilot" || ?fam = "copilot"),
+                       IF(BOUND(?assetRank) && (?assetRank >= 2),
+                          (BOUND(?orgSignedIn) && ?orgSignedIn = true),
+                          true),
+                       true) AS ?okCopilot )
+
+              # Violation when ANY guard fails
+              BIND( CONCAT(
+                     IF(!?okMax,    "exceeds platform max; ", ""),
+                     IF(!?okTenant, "tenant not approved; ", ""),
+                     IF(!?okRegion, "region not allowed; ", ""),
+                     IF(!?okAzure,  "AzureOpenAI cap exceeded; ", ""),
+                     IF(!?okPublic, "PublicGenAI cap exceeded; ", ""),
+                     IF(!?okCopilot,"Org sign-in missing for Copilot/Bing; ", "")
+                   ) AS ?reason )
+
+              FILTER( !(?okMax && ?okTenant && ?okRegion && ?okAzure && ?okPublic && ?okCopilot) )
+            }
+          """ ;
+        ] .
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ05_Asset_Retention_Shape
+      a sh:NodeShape ;
+      rdfs:label "CQ5: Asset retention must meet or exceed the policy minimum for its class/unit" ;
+      sh:targetClass smedg:Asset .
+
+    smedg:CQ05_SparqlConstraint
+      a sh:SPARQLConstraint ;
+      sh:message "Violation of Policies P5/P26 — Asset retentionDays is shorter than the minimum for its classification (and unit, if defined). (CQ5)" ;
+      sh:select """
+        PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+        PREFIX smedg: <urn:SMEDG_Prototype:>
+        SELECT ?this ?class ?days ?min ?minSource
+        WHERE {
+          ?this  smedg:hasClassification ?class ;
+                 smedg:retentionDays ?days .
+
+          # Default minimum per class (e.g., set on the class node)
+          OPTIONAL { ?class smedg:minRetentionDays ?minByClass . }
+
+          # Unit-specific override: OrgUnit -> retentionByClass rule nodes
+          OPTIONAL {
+            ?this  smedg:fromUnit ?unit .
+            ?unit  smedg:retentionByClass ?rule .
+            ?rule  smedg:appliesToClass ?class ;
+                   smedg:minDays       ?minByUnit .
+          }
+
+          BIND( COALESCE(?minByUnit, ?minByClass) AS ?min )
+          BIND( IF(BOUND(?minByUnit), "unit", "class") AS ?minSource )
+
+          # Violation only when a minimum is known AND days < min
+          FILTER( BOUND(?min) && xsd:integer(?days) < xsd:integer(?min) )
+        }
+      """ .
+
+    smedg:CQ05_Asset_Retention_Shape sh:sparql smedg:CQ05_SparqlConstraint .
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ06_Label_vs_Class_Shape
+      a sh:NodeShape ;
+      rdfs:label "CQ6: 'Confidential' label must align with classification; provenance optional" ;
+      sh:targetClass smedg:Asset .
+
+    # --- P6: If label says 'Confidential', class must be ≥ Confidential ---
+    smedg:CQ06_P6_SparqlConstraint
+      a sh:SPARQLConstraint ;
+      sh:message "Violation of Policy P6 — Asset carries a 'Confidential' label but classification is below Confidential. (CQ6)" ;
+      sh:select """
+        PREFIX smedg: <urn:SMEDG_Prototype:>
+        SELECT ?this ?class ?label
+        WHERE {
+          ?this smedg:hasClassification ?class ;
+                smedg:hasLabel ?label .
+
+          OPTIONAL { ?label smedg:labelName ?labelName . }  # if labels are nodes with a name
+
+          BIND( LCASE(STR(?label)) = "confidential"
+                || (BOUND(?labelName) && LCASE(STR(?labelName)) = "confidential")
+                || (?label = smedg:ConfidentialLabel)
+                || (?label = smedg:Confidential)
+                AS ?isConfLabel )
+
+          FILTER( ?isConfLabel )
+          FILTER( ?class NOT IN (smedg:Confidential, smedg:Restricted) )
+        }
+      """ .
+
+    # --- P20 (optional): If labelSource indicates DLP, provenance must show DLP applied it ---
+    smedg:CQ06_P20_SparqlConstraint
+      a sh:SPARQLConstraint ;
+      sh:message "Violation of Policy P20 — Label source is DLP but provenance does not show it was applied by DLP. (CQ6, optional when provenance is modeled)" ;
+      sh:select """
+        PREFIX smedg: <urn:SMEDG_Prototype:>
+        SELECT ?this ?label ?source ?applier
+        WHERE {
+          ?this smedg:hasLabel ?label .
+          OPTIONAL { ?this smedg:labelSource ?source . }    # "DLP" or IRI
+          OPTIONAL { ?this smedg:appliedBy   ?applier . }   # should be smedg:DLP or "DLP"
+
+          # Trigger only if source explicitly says DLP
+          FILTER( BOUND(?source) && LCASE(STR(?source)) = "dlp" )
+
+          # Violation if applier is not DLP (string or IRI)
+          FILTER( !(?applier = smedg:DLP || LCASE(STR(?applier)) = "dlp") )
+        }
+      """ .
+
+    smedg:CQ06_Label_vs_Class_Shape
+      sh:sparql smedg:CQ06_P6_SparqlConstraint , smedg:CQ06_P20_SparqlConstraint .
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+INSERT DATA {
+  GRAPH <urn:smedg:shapes> {
+
+    smedg:CQ07_File_Extension_GenAI_Shape
+      a sh:NodeShape ;
+      rdfs:label "CQ7: .zip/.pst files at Internal+ must not be processed on GenAI platforms" ;
+      sh:targetClass smedg:File .
+
+    smedg:CQ07_SparqlConstraint
+      a sh:SPARQLConstraint ;
+      sh:message "Violation of Policy P7 — .zip/.pst files classified Internal+ must not be processed on GenAI platforms. (CQ7)" ;
+      sh:select """
+        PREFIX smedg: <urn:SMEDG_Prototype:>
+        SELECT ?this ?ext ?class ?platform
+        WHERE {
+          ?this  smedg:hasClassification ?class ;
+                 smedg:extension ?ext .
+
+          # class ≥ Internal
+          FILTER ( ?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) )
+
+          # extension .zip/.pst (dot optional, case-insensitive)
+          BIND( LCASE(STR(?ext)) AS ?e )
+          FILTER( ?e IN (".zip","zip",".pst","pst") )
+
+          # processed on a GenAI platform
+          ?this smedg:processedOn ?platform .
+          OPTIONAL { ?platform a smedg:GenAIPlatform . }
+          OPTIONAL { ?platform smedg:hasFamily ?family . }
+
+          FILTER( EXISTS { ?platform a smedg:GenAIPlatform } || BOUND(?family) )
+        }
+      """ .
+
+    smedg:CQ07_File_Extension_GenAI_Shape sh:sparql smedg:CQ07_SparqlConstraint .
+  }
+}
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ08_PhysicalRecord_Security_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ8: Confidential physical records must be secured and logged" ;
+  sh:targetClass smedg:PhysicalRecord .
+
+smedg:CQ08_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P8 — Confidential physical records must be in a secure cabinet and be logged. (CQ8)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?storage ?secureCabinet ?logged
+    WHERE {
+      ?this smedg:hasClassification ?class .
+      FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+
+      OPTIONAL { ?this smedg:storedIn ?storage . ?storage smedg:isSecureCabinet ?secureCabinet . }
+      OPTIONAL { ?this smedg:logged ?logged . }
+
+      FILTER( !(BOUND(?secureCabinet) && ?secureCabinet = true && BOUND(?logged) && ?logged = true) )
+    }
+  """ .
+
+smedg:CQ08_PhysicalRecord_Security_Shape sh:sparql smedg:CQ08_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ09_Document_LabelLevel_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ9: Documents of class ≥ Internal must carry at least an Internal label" ;
+  sh:targetClass smedg:Document .
+
+smedg:CQ09_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P9/P35/P37 — Internal+ documents must have a label whose level is ≥ Internal. (CQ9)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?class
+    WHERE {
+      ?this  smedg:hasClassification ?class .
+      FILTER (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted))
+
+      # a label that has a level (or class) meeting/exceeding Internal
+      FILTER NOT EXISTS {
+        ?this smedg:hasLabel ?label .
+        OPTIONAL { ?label smedg:labelLevel ?lvl . }
+        BIND (COALESCE(?lvl, smedg:Internal) AS ?labelLevel)  # assume worst case if not modeled
+        VALUES (?cls ?rank) {
+          (smedg:Public        1)
+          (smedg:Internal      2)
+          (smedg:Sensitive     3)
+          (smedg:Confidential  4)
+          (smedg:Restricted    5)
+        }
+        VALUES (?min ?minRank) { (smedg:Internal 2) }
+        BIND( IF(?labelLevel = ?cls, ?rank, UNDEF) AS ?lR_tmp )
+        BIND( COALESCE(?lR_tmp) AS ?labelRank )
+        FILTER( BOUND(?labelRank) && ?labelRank >= ?minRank )
+      }
+    }
+  """ .
+
+smedg:CQ09_Document_LabelLevel_Shape sh:sparql smedg:CQ09_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ10_Asset_Ownership_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ10: Internal+ assets must have both a named owner and an org-unit owner" ;
+  sh:targetClass smedg:Asset .
+
+smedg:CQ10_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P10 — Internal+ assets must have owner and groupOwner. (CQ10)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?class
+    WHERE {
+      ?this smedg:hasClassification ?class .
+      FILTER (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted))
+      OPTIONAL { ?this smedg:owner ?owner . }
+      OPTIONAL { ?this smedg:groupOwner ?gowner . }
+      FILTER( !(BOUND(?owner) && BOUND(?gowner)) )
+    }
+  """ .
+
+smedg:CQ10_Asset_Ownership_Shape sh:sparql smedg:CQ10_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ11_Alert_Assignment_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ11: High-severity alerts must be assigned within SLA" ;
+  sh:targetClass smedg:Alert .
+
+smedg:CQ11_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P11 — High-severity alerts must be assigned within the allowed time. (CQ11)" ;
+  sh:select """
+    PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?createdAt ?assignedTo
+    WHERE {
+      ?this smedg:severity "High" ;
+            smedg:createdAt ?createdAt .
+      OPTIONAL { ?this smedg:assignedTo ?assignedTo . }
+
+      BIND( NOW() - ?createdAt AS ?age )
+      FILTER( !BOUND(?assignedTo) || (?age > "PT2H"^^xsd:dayTimeDuration) )
+    }
+  """ .
+
+smedg:CQ11_Alert_Assignment_Shape sh:sparql smedg:CQ11_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ12_Asset_UnitApprovedStorage_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ12: Assets must be stored only in services approved for their org unit" ;
+  sh:targetClass smedg:Asset .
+
+smedg:CQ12_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P12/P21 — Storage service is not approved for the asset’s org unit. (CQ12)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?unit ?storage
+    WHERE {
+      ?this   smedg:fromUnit ?unit ;
+              smedg:storedIn ?storage .
+      FILTER NOT EXISTS { ?storage smedg:approvedForUnit ?unit . }
+    }
+  """ .
+
+smedg:CQ12_Asset_UnitApprovedStorage_Shape sh:sparql smedg:CQ12_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ13_Email_BanByUnit_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ13: External email must respect the unit’s class limit" ;
+  sh:targetClass smedg:DistributionEvent .
+
+smedg:CQ13_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P14/P23 — External distribution exceeds the sender unit’s allowed maximum class. (CQ13)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?assetClass ?unit ?maxAllowed
+    WHERE {
+      ?this smedg:to ?party .
+      ?party smedg:isExternal true .
+
+      ?this smedg:about ?asset .
+      ?asset smedg:hasClassification ?assetClass .
+
+      ?this smedg:initiatedBy ?user .
+      ?user smedg:memberOf ?unit .
+      OPTIONAL { ?unit smedg:emailExternalAllowedMaxClass ?maxAllowed . }
+
+      VALUES (?cls ?rank) {
+        (smedg:Public        1)
+        (smedg:Internal      2)
+        (smedg:Sensitive     3)
+        (smedg:Confidential  4)
+        (smedg:Restricted    5)
+      }
+      BIND( IF(?assetClass = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+      BIND( COALESCE(?aR_tmp) AS ?assetRank )
+      OPTIONAL { BIND( IF(?maxAllowed = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+      BIND( COALESCE(?mR_tmp) AS ?maxRank )
+
+      FILTER( !BOUND(?maxRank) || (BOUND(?assetRank) && ?assetRank > ?maxRank) )
+    }
+  """ .
+
+smedg:CQ13_Email_BanByUnit_Shape sh:sparql smedg:CQ13_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ14_Document_UnitMinima_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ14: Respect unit watermark/label minima for documents" ;
+  sh:targetClass smedg:Document .
+
+smedg:CQ14_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P15/P16/P24/P25 — Document does not meet unit watermark or label minimum. (CQ14)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?unit ?class ?wmRequired ?minLabel
+    WHERE {
+      ?this  smedg:hasClassification ?class ;
+             smedg:fromUnit ?unit .
+      OPTIONAL { ?unit smedg:watermarkRequiredAtOrAbove ?wmRequired . }
+      OPTIONAL {
+        ?unit smedg:labelMinimumByClass ?rule .
+        ?rule smedg:appliesToClass ?class ;
+              smedg:minLabelLevel  ?minLabel .
+      }
+
+      OPTIONAL { ?this smedg:hasWatermark ?wm . }
+      OPTIONAL { ?this smedg:hasLabel ?label . ?label smedg:labelLevel ?labelLvl . }
+
+      VALUES (?cls ?rank) {
+        (smedg:Public        1)
+        (smedg:Internal      2)
+        (smedg:Sensitive     3)
+        (smedg:Confidential  4)
+        (smedg:Restricted    5)
+      }
+      BIND( IF(?class = ?cls, ?rank, UNDEF) AS ?dR_tmp )
+      BIND( COALESCE(?dR_tmp) AS ?docRank )
+
+      OPTIONAL { BIND( IF(?wmRequired = ?cls, ?rank, UNDEF) AS ?wR_tmp ) }
+      BIND( COALESCE(?wR_tmp) AS ?wmRank )
+
+      OPTIONAL { BIND( IF(?labelLvl = ?cls, ?rank, UNDEF) AS ?lR_tmp ) }
+      BIND( COALESCE(?lR_tmp) AS ?labelRank )
+
+      OPTIONAL { BIND( IF(?minLabel = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+      BIND( COALESCE(?mR_tmp) AS ?minLabelRank )
+
+      BIND( IF(BOUND(?wmRank) && BOUND(?docRank) && ?docRank >= ?wmRank, true, false) AS ?needsWM )
+      BIND( IF(BOUND(?minLabelRank), true, false) AS ?needsLabel )
+
+      FILTER(
+        ( ?needsWM && !(BOUND(?wm) && ?wm = true) )
+        ||
+        ( ?needsLabel && !(BOUND(?labelRank) && ?labelRank >= ?minLabelRank) )
+      )
+    }
+  """ .
+
+smedg:CQ14_Document_UnitMinima_Shape sh:sparql smedg:CQ14_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ15_Transfer_ChannelPolicy_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ15: Transfer channel must be permitted for the item’s classification" ;
+  sh:targetClass smedg:TransferEvent .
+
+smedg:CQ15_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P17/P18/P31/P32/P33 — Channel not permitted for the item’s classification (USB disallowed for Restricted; Email allowed for Internal). (CQ15)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?class ?channel ?name
+    WHERE {
+      ?this smedg:about ?asset ;
+            smedg:overChannel ?channel .
+      ?asset smedg:hasClassification ?class .
+      OPTIONAL { ?channel smedg:name ?name . }
+      OPTIONAL { ?channel smedg:allowedAtOrAbove ?minClass . }
+
+      VALUES (?cls ?rank) {
+        (smedg:Public        1)
+        (smedg:Internal      2)
+        (smedg:Sensitive     3)
+        (smedg:Confidential  4)
+        (smedg:Restricted    5)
+      }
+      BIND( IF(?class = ?cls, ?rank, UNDEF) AS ?aR_tmp )
+      BIND( COALESCE(?aR_tmp) AS ?assetRank )
+
+      OPTIONAL { BIND( IF(?minClass = ?cls, ?rank, UNDEF) AS ?mR_tmp ) }
+      BIND( COALESCE(?mR_tmp) AS ?minRank )
+
+      BIND( LCASE(STR(?name)) AS ?nm )
+      BIND( IF(BOUND(?minRank) && BOUND(?assetRank) && ?assetRank >= ?minRank, true, false) AS ?okByPolicy )
+      BIND( IF(BOUND(?nm) && ?nm = "usb" && BOUND(?assetRank) && ?assetRank >= 5, false, true) AS ?okUsbRestricted )
+
+      FILTER( !(?okByPolicy && ?okUsbRestricted) )
+    }
+  """ .
+
+smedg:CQ15_Transfer_ChannelPolicy_Shape sh:sparql smedg:CQ15_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ16_ChangeClass_Authorisation_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ16: Only authorised Records Officers may change classification" ;
+  sh:targetClass smedg:AuditEvent .
+
+smedg:CQ16_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P19/P27 — Classification change performed by unauthorised role. (CQ16)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?user
+    WHERE {
+      ?this smedg:changedProperty smedg:hasClassification ;
+            smedg:performedBy ?user .
+      OPTIONAL { ?user smedg:hasRole "RecordsOfficer" . }
+
+      FILTER ( NOT EXISTS { ?user smedg:hasRole "RecordsOfficer" } )
+    }
+  """ .
+
+smedg:CQ16_ChangeClass_Authorisation_Shape sh:sparql smedg:CQ16_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ17_Move_ToSecure_ByOwner_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ17: Confidential+ moves into Secure sites must be by Site Owners" ;
+  sh:targetClass smedg:AuditEvent .
+
+smedg:CQ17_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P29 — Move into Secure storage for Confidential+ performed by non–Site Owner. (CQ17)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?class ?to ?user
+    WHERE {
+      ?this smedg:about ?asset ;
+            smedg:movedTo ?to ;
+            smedg:performedBy ?user .
+      ?asset smedg:hasClassification ?class .
+      OPTIONAL { ?to smedg:isSecure true . }
+      OPTIONAL { ?to smedg:siteType ?siteType . }
+
+      FILTER (?class IN (smedg:Confidential, smedg:Restricted))
+      FILTER ( (BOUND(?siteType) && LCASE(STR(?siteType)) = "secure") || (EXISTS { ?to smedg:isSecure true }) )
+
+      FILTER ( NOT EXISTS { ?user smedg:hasRole "SiteOwner" } )
+    }
+  """ .
+
+smedg:CQ17_Move_ToSecure_ByOwner_Shape sh:sparql smedg:CQ17_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ18_OneDrive_Rules_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ18: OneDrive rules — no Confidential; Internal/Sensitive only if draft & labelled" ;
+  sh:targetClass smedg:Asset .
+
+smedg:CQ18_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P42 — On OneDrive: Confidential not allowed; Internal/Sensitive must be draft and labelled. (CQ18)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?class ?storage ?isDraft
+    WHERE {
+      ?this smedg:storedIn ?storage ;
+            smedg:hasClassification ?class .
+      ?storage smedg:hasFamily "OneDrive" .
+      OPTIONAL { ?this smedg:isDraft ?isDraft . }
+      OPTIONAL { ?this smedg:hasLabel ?label . }
+
+      FILTER (
+        (?class = smedg:Confidential)
+        ||
+        ( (?class IN (smedg:Internal, smedg:Sensitive)) && ( !(BOUND(?isDraft) && ?isDraft=true) || !BOUND(?label) ) )
+      )
+    }
+  """ .
+
+smedg:CQ18_OneDrive_Rules_Shape sh:sparql smedg:CQ18_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ19_Service_AllowDeny_Legacy_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ19: Service allow/deny lists; Google Drive legacy-only" ;
+  sh:targetClass smedg:Asset .
+
+smedg:CQ19_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P43/P44 — Using forbidden service family or Google Drive without legacy flag. (CQ19)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?storage ?family ?isLegacy ?authorised ?allowLegacyOnly
+    WHERE {
+      ?this smedg:storedIn ?storage .
+      OPTIONAL { ?storage smedg:hasFamily ?family . }
+      OPTIONAL { ?storage smedg:isAuthorised ?authorised . }
+      OPTIONAL { ?storage smedg:allowLegacyOnly ?allowLegacyOnly . }
+      OPTIONAL { ?this    smedg:isLegacy ?isLegacy . }
+
+      BIND( LCASE(STR(?family)) AS ?fam )
+      FILTER(
+        (BOUND(?authorised) && ?authorised = false)
+        ||
+        (?fam = "googledrive" && (BOUND(?allowLegacyOnly) && ?allowLegacyOnly = true) && !(BOUND(?isLegacy) && ?isLegacy = true))
+      )
+    }
+  """ .
+
+smedg:CQ19_Service_AllowDeny_Legacy_Shape sh:sparql smedg:CQ19_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ20_Network_eResearch_Limit_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ20: Network Drive/eResearch items must be ≤ Internal" ;
+  sh:targetClass smedg:Asset .
+
+smedg:CQ20_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P45 — Items on Network Drive/eResearch exceed Internal. (CQ20)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?class ?storage ?family
+    WHERE {
+      ?this smedg:storedIn ?storage ;
+            smedg:hasClassification ?class .
+      ?storage smedg:hasFamily ?family .
+      FILTER ( LCASE(STR(?family)) IN ("networkdrive","eresearch") )
+      FILTER ( ?class NOT IN (smedg:Public, smedg:Internal) )
+    }
+  """ .
+
+smedg:CQ20_Network_eResearch_Limit_Shape sh:sparql smedg:CQ20_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ21_External_Sharing_Controls_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ21: External sharing controls for Internal+ (encryption, password OOB; DRM for Confidential)" ;
+  sh:targetClass smedg:DistributionEvent .
+
+smedg:CQ21_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policies P46/P36 — External sharing of Internal+ must have encryption + out-of-band password; Confidential must also disable download/print. (CQ21)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?class ?enc ?oob ?dd ?dp
+    WHERE {
+      ?this smedg:to ?party ;
+            smedg:about ?asset .
+      ?party smedg:isExternal true .
+      ?asset smedg:hasClassification ?class .
+
+      OPTIONAL { ?this smedg:encrypted ?enc . }
+      OPTIONAL { ?this smedg:passwordOutOfBand ?oob . }
+      OPTIONAL { ?this smedg:drmDisableDownload ?dd . }
+      OPTIONAL { ?this smedg:drmDisablePrint ?dp . }
+
+      FILTER (
+        (?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) && !(BOUND(?enc) && ?enc=true && BOUND(?oob) && ?oob=true))
+        ||
+        (?class IN (smedg:Confidential, smedg:Restricted) && !(BOUND(?dd) && ?dd=true && BOUND(?dp) && ?dp=true))
+      )
+    }
+  """ .
+
+smedg:CQ21_External_Sharing_Controls_Shape sh:sparql smedg:CQ21_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ22_PortableMedia_Controls_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ22: Portable media transfers of Internal+ must be encrypted, hand-delivered, and custody logged" ;
+  sh:targetClass smedg:TransferEvent .
+
+smedg:CQ22_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P47 — Portable media for Internal+ must be encrypted, hand-delivered, and custody logged. (CQ22)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?class ?encrypted ?handDelivered ?custodyLogged
+    WHERE {
+      ?this smedg:about ?asset ;
+            smedg:overChannel ?channel .
+      ?asset smedg:hasClassification ?class .
+      ?channel smedg:name "PortableMedia" .
+
+      OPTIONAL { ?this smedg:encrypted ?encrypted . }
+      OPTIONAL { ?this smedg:handDelivered ?handDelivered . }
+      OPTIONAL { ?this smedg:custodyLogged ?custodyLogged . }
+
+      FILTER ( ?class IN (smedg:Internal, smedg:Sensitive, smedg:Confidential, smedg:Restricted) )
+      FILTER ( !(BOUND(?encrypted) && ?encrypted=true && BOUND(?handDelivered) && ?handDelivered=true && BOUND(?custodyLogged) && ?custodyLogged=true) )
+    }
+  """ .
+
+smedg:CQ22_PortableMedia_Controls_Shape sh:sparql smedg:CQ22_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ23_Lifecycle_AppropriateMethods_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ23: Archiving/destruction methods must be appropriate to class" ;
+  sh:targetClass smedg:AuditEvent .
+
+smedg:CQ23_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P48 — The chosen archive route or destruction method is not permitted for the item’s class. (CQ23)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?asset ?class ?destructionMethod ?archiveRoute
+    WHERE {
+      ?this smedg:about ?asset .
+      ?asset smedg:hasClassification ?class .
+
+      OPTIONAL { ?this smedg:destructionMethod ?destructionMethod . }
+      OPTIONAL { ?this smedg:archiveRoute ?archiveRoute . }
+
+      FILTER (
+        (BOUND(?destructionMethod) && NOT EXISTS { ?class smedg:allowedDestructionMethod ?destructionMethod })
+        ||
+        (BOUND(?archiveRoute) && NOT EXISTS { ?class smedg:allowedArchiveRoute ?archiveRoute })
+      )
+    }
+  """ .
+
+smedg:CQ23_Lifecycle_AppropriateMethods_Shape sh:sparql smedg:CQ23_SparqlConstraint .
+
+      }
+    }
+
+
+PREFIX sh:    <http://www.w3.org/ns/shacl#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX smedg: <urn:SMEDG_Prototype:>
+
+    INSERT DATA {
+      GRAPH <urn:smedg:shapes> {
+    smedg:CQ24_TeamsChat_Confidential_Controls_Shape
+  a sh:NodeShape ;
+  rdfs:label "CQ24: Confidential Teams chats must link to Secure site or be sanitised; membership must be clean" ;
+  sh:targetClass smedg:TeamsChat .
+
+smedg:CQ24_SparqlConstraint
+  a sh:SPARQLConstraint ;
+  sh:message "Violation of Policy P41 — Confidential chat without secure link or sanitisation, or with poor membership hygiene. (CQ24)" ;
+  sh:select """
+    PREFIX smedg: <urn:SMEDG_Prototype:>
+    SELECT ?this ?class ?linked ?sanitised ?membershipOk
+    WHERE {
+      ?this smedg:hasClassification ?class .
+      FILTER (?class = smedg:Confidential)
+
+      OPTIONAL { ?this smedg:linkedToStorage ?storage . ?storage smedg:isSecure true . BIND(true AS ?linked) }
+      OPTIONAL { ?this smedg:sanitised ?sanitised . }
+      OPTIONAL { ?this smedg:membershipHygieneOk ?membershipOk . }
+
+      FILTER ( !(BOUND(?linked) || (BOUND(?sanitised) && ?sanitised=true)) || !(BOUND(?membershipOk) && ?membershipOk=true) )
+    }
+  """ .
+
+smedg:CQ24_TeamsChat_Confidential_Controls_Shape sh:sparql smedg:CQ24_SparqlConstraint .
+
+      }
+    }
+
+
